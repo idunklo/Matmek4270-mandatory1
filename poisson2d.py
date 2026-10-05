@@ -47,13 +47,21 @@ class Poisson2D:
         ----------
         N : int
             The number of uniform intervals in both x and y directions
+        dx: ?
+        dy: ?
 
         Returns
         -------
         A : scipy sparse LIL matrix
             The vectorized Laplace operator
         """
-        raise NotImplementedError("The laplace method is not implemented yet.")
+        D = p.D2(N)
+        D2x = (1/dx**2) * D
+        D2y = (1/dy**2) * D
+
+        return (sparse.kron(D2x, sparse.eye(N + 1)) +
+            sparse.kron(sparse.eye(N + 1), D2y))
+        
 
     def assemble(
         self, N: int, f: sp.Expr, ue: sp.Expr
