@@ -21,6 +21,7 @@ class Poisson2D:
 
     def __init__(self, L: float):
         self.p = Poisson(L)  # we can reuse some of the code from the 1D case
+        self.L = L
 
     def create_mesh(self, N: int) -> tuple[np.ndarray, np.ndarray]:
         """Return a 2D Cartesian mesh
@@ -47,20 +48,18 @@ class Poisson2D:
         ----------
         N : int
             The number of uniform intervals in both x and y directions
-        dx: ?
-        dy: ?
 
         Returns
         -------
         A : scipy sparse LIL matrix
             The vectorized Laplace operator
         """
-        D = p.D2(N)
-        D2x = (1/dx**2) * D
-        D2y = (1/dy**2) * D
+        h = self.L/N            # Because dx = dy
+        D2 = self.p.D2(N, h)
+        I = sparse.eye(N + 1)
 
-        return (sparse.kron(D2x, sparse.eye(N + 1)) +
-            sparse.kron(sparse.eye(N + 1), D2y))
+        return (sparse.kron(D2, I) +
+            sparse.kron(I, D2)).tolil()
         
 
     def assemble(
