@@ -51,7 +51,7 @@ class Poisson2D:
 
         Returns
         -------
-        A : scipy sparse LIL matrix
+        A : scipy sparse LIL matrix 
             The vectorized Laplace operator
         """
         h = self.L/N            # Because dx = dy
@@ -91,7 +91,20 @@ class Poisson2D:
         Dirichlet boundary conditions using the exact solution ue.
 
         """
-        raise NotImplementedError("The assemble method is not implemented yet.")
+        xij, yij = self.create_mesh(N) 
+        A = self.laplace(N)
+        F = sp.lambdify((x, y), f)(xij, yij)
+
+        # Implement boundaries
+        bnds = self.get_boundary_indices(N)
+        for i in bnds:
+            A[i] = 0
+            A[i,i] = 1
+
+        b = F.ravel()
+        b[bnds] = 0
+
+        return A.tocrs(), b 
 
     def meshfunction(self, u: sp.Expr, xij: np.ndarray, yij: np.ndarray) -> np.ndarray:
         """Return Sympy function as mesh function
@@ -108,9 +121,12 @@ class Poisson2D:
 
     def get_boundary_indices(self, N: int) -> np.ndarray:
         """Return indices of vectorized matrix that belongs to the boundary"""
-        raise NotImplementedError(
-            "The get_boundary_indices method is not implemented yet."
-        )
+
+        B = np.ones((Nx+1, Ny+1), dtype=bool)
+        B[1:-1, 1:-1] = 0
+        bound_i = np.where(B.ravel() == 1)[0]
+
+        return bound_i
 
     def l2_error(self, u: np.ndarray, ue: sp.Expr) -> float:
         """Return l2-error
@@ -134,7 +150,7 @@ class Poisson2D:
 
         Parameters
         ----------
-        Nx : int
+        N : int
             The number of uniform intervals in both x and y directions
         ue : Sympy expression
             The exact solution
