@@ -21,7 +21,6 @@ class Poisson2D:
 
     def __init__(self, L: float):
         self.p = Poisson(L)  # we can reuse some of the code from the 1D case
-        self.L = L
 
     def create_mesh(self, N: int) -> tuple[np.ndarray, np.ndarray]:
         """Return a 2D Cartesian mesh
@@ -54,7 +53,7 @@ class Poisson2D:
         A : scipy sparse LIL matrix 
             The vectorized Laplace operator
         """
-        h = self.L/N            # Because dx = dy
+        h = self.p.L/N            # Because dx = dy
         D2 = self.p.D2(N, h)
         I = sparse.eye(N + 1)
 
@@ -93,7 +92,7 @@ class Poisson2D:
         """
         xij, yij = self.create_mesh(N) 
         A = self.laplace(N)
-        F = sp.lambdify((x, y), f)(xij, yij)
+        F = self.meshfunction(f, xij, yij)
 
         # Implement boundaries
         bnds = self.get_boundary_indices(N)
@@ -102,9 +101,9 @@ class Poisson2D:
             A[i,i] = 1
 
         b = F.ravel()
-        b[bnds] = 0
+        b[bnds] = self.meshfunction(ue, xij, yij).ravel()[bnds]
 
-        return A.tocrs(), b 
+        return A.tocsr(), b 
 
     def meshfunction(self, u: sp.Expr, xij: np.ndarray, yij: np.ndarray) -> np.ndarray:
         """Return Sympy function as mesh function
@@ -117,12 +116,12 @@ class Poisson2D:
         -------
         array - The input function as a mesh function
         """
-        raise NotImplementedError("The meshfunction method is not implemented yet.")
+        return sp.lambdify((x, y), u)(xij, yij)
 
     def get_boundary_indices(self, N: int) -> np.ndarray:
         """Return indices of vectorized matrix that belongs to the boundary"""
 
-        B = np.ones((Nx+1, Ny+1), dtype=bool)
+        B = np.ones((N+1, N+1), dtype=bool)
         B[1:-1, 1:-1] = 0
         bound_i = np.where(B.ravel() == 1)[0]
 
@@ -143,8 +142,13 @@ class Poisson2D:
         float - The l2-error
 
         """
-        raise NotImplementedError("The l2_error method is not implemented yet.")
+        N = u.shape[0] - 1
+        h = self.p.L/N
+        xij, yij = self.create_mesh(N)
+        ue_mesh = self.meshfunction(ue, xij, yij)
 
+        return np.sqrt(h**2*np.sum((u - ue_mesh)**2))
+       
     def __call__(self, N: int, ue: sp.Expr) -> np.ndarray:
         """Solve Poisson's equation with a given manufactured solution
 
@@ -188,7 +192,43 @@ class Poisson2D:
         The value of u(x, y)
 
         """
-        raise NotImplementedError("The eval method is not implemented yet.")
+        N = U.shape[0] - 1
+        h = self.p.L/N 
+        xij, yij = self.create_mesh(N)
+
+        #Find four nearest nodes
+        i = min(max(int(x / h) - 1, 0), N - 3) 
+        j = min(max(int(y / h) - 1, 0), N - 3)
+
+        lx = self.Lagrangebasis(xij[i: i+4, 0], x)
+        ly = self.Lagrangebasis(yij[0, j:j+4], y)
+
+        return lx @ U[i: i+4, j:j+4] @ ly
+
+        
+
+    def Lagrangebasis(self, xj: np.ndarray, x: float) -> np.ndarray:
+        """Return Lagrange basis-functions for xj, evaluated at x
+
+        Parameters
+        ----------
+        xj : array
+            Interpolation points (nodes)
+        x : Float
+
+        Returns
+        -------
+        Lagrange basis-functions for xj, evaluated at x
+        """
+
+        n = len(xj)
+        ell = np.ones(n)
+
+        for i in range(n):
+            for j in range(n): 
+                if i != j:
+                    ell[i] *= (x - xj[j])/(xj[i] - xj[j])
+        return ell
 
 
 def test_convergence_poisson2d():
