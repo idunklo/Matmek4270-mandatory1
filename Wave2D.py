@@ -282,10 +282,17 @@ def test_convergence_wave2d_neumann():
 
 
 def test_exact_wave2d():
-    raise NotImplementedError("The test_exact_wave2d function is not implemented yet.")
+    sol = Wave2D()
+    _, err = sol(N=20, Nt=10, cfl=1/np.sqrt(2), mx=3, my=3)
+    assert np.max(err) < 1e-12, np.max(err)
+
+    solN = Wave2D_Neumann()
+    _, errN = solN(N=20, Nt=10, cfl=1/np.sqrt(2), mx=3, my=3)
+    assert np.max(errN) < 1e-12, np.max(errN)
 
 if __name__ == "__main__":
     test_convergence_wave2d()
     test_convergence_wave2d_neumann
+    test_exact_wave2d
     print("All tests passed!")
 
